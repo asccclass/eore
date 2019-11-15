@@ -1,0 +1,124 @@
+package {{.TableName}}
+// takeinlistobj.go
+
+import(
+   "fmt"
+   "strings"
+   "strconv"
+   "github.com/asccclass/sherrytime"
+   "github.com/asccclass/sherrydb/mysql"
+)
+
+// Table Structure 
+type X{{.TableName}} struct {
+{{ .TableStructure }}}  
+
+type N{{.TableName}} struct {
+   DBConfig SherryDB.DBConnect
+}
+
+// 新增{{.TableName}}資料
+func(c *N{{.TableName}}) Create(m X{{.TableName}})(X{{.TableName}}, error) {
+   // 設定PrimaryKey為空值
+   m.{{.UPrimaryKey}} = ""
+{{ if .AutoDate }}
+   // 自動產生日期
+   st := sherrytime.NewSherryTime("Asia/Taipei", "-")
+   {{ range $value := .UFields }}{{if eq $value "CreateDate"  }}m.{{$value}} = st.Today(){{end}}{{if eq $value "Lastupdate"  }}
+   m.{{$value}} = st.Today(){{end}}{{ end }}
+{{ end }}
+   var sql strings.Builder
+   sql.WriteString("insert into X{{.TableName}}({{ range $idx, $value := .Fields }}{{if $idx}},{{end}}{{ $value }}{{ end }}) ")
+   sql.WriteString("values({{ range $idx, $value := .Fields }}{{if $idx}},{{end}}?{{ end }})")
+   conn, err := SherryDB.NewSherryDB(c.DBConfig)
+   defer conn.Conn.Close()
+   if err != nil {
+      return m, err
+   }
+   ID, err := conn.Exec(sql.String(), {{ range $idx, $value := .UFields }}{{if $idx}},{{end}}m.{{ $value }}{{ end }})
+   if err != nil  {
+      return m, fmt.Errorf("Insert meno information Error(%s)", err.Error())
+   }
+   m.{{.UPrimaryKey}} = strconv.FormatInt(ID.(int64), 10)
+   return m, nil
+}
+
+// 取得{{.TableName}}資料
+func(c *N{{.TableName}}) Read(id string)([]X{{.TableName}}, error) {
+   var Tx []X{{.TableName}}
+   if id == "" {
+     return Tx, fmt.Errorf("Primary Key ID can not empty.")   
+   }
+   conn, err := SherryDB.NewSherryDB(c.DBConfig)
+   defer conn.Conn.Close()
+   if err != nil {
+      return Tx, err
+   }
+   var sql strings.Builder
+   sql.WriteString("select {{ range $idx, $value := .Fields }}{{if $idx}},{{end}}{{ $value }}{{ end }} from X{{.TableName}} ")
+   if id != "" {
+       sql.WriteString("where {{.PrimaryKey}}=?")
+   }
+   rows, err := conn.Conn.Query(sql.String(), id)
+   if err != nil {
+      if err.Error() == "sql: no rows in result set" {
+         return Tx, nil
+      } else {
+         return Tx, err
+      }
+   }
+   defer rows.Close()
+   for rows.Next() {
+      var m X{{.TableName}}
+      if err := rows.Scan({{ range $idx, $value := .UFields }}{{if $idx}},{{end}}&m.{{ $value }}{{ end }}); err != nil {
+         return Tx, err
+      }
+      Tx = append(Tx, m)
+   }
+   return Tx, nil
+}
+
+// 更新{{.TableName}}資料
+// Update 備註資料
+func(c *N{{.TableName}}) Update(m []X{{.TableName}}) ([]X{{.TableName}}, error) {
+   var newT []X{{.TableName}}
+   conn, err := SherryDB.NewSherryDB(c.DBConfig)
+   defer conn.Conn.Close()
+   if err != nil {
+      return newT, err
+   }
+{{ if .AutoDate }}   // 自動產生日期
+   st := sherrytime.NewSherryTime("Asia/Taipei", "-")
+{{ end }}
+   for _, elem := range m {
+      if elem.{{.UPrimaryKey}} == "" {   // 無Key資料,新增
+         n, err := c.Create(elem)
+         if err != nil {
+            return newT, err
+         }
+         newT = append(newT, n)
+      } else {		// 更新現有資料
+         {{ range $value := .UFields }}{{if eq $value "Lastupdate"  }}elem.{{$value}} = st.Today(){{end}}{{ end }}
+         sql := "update {{.TableName}} set {{ range $idx, $value := .Fields }}{{if $idx}},{{end}}{{ $value }}=?{{ end }} where {{.PrimaryKey}}=?"
+         _, err := conn.Exec(sql,{{ range $idx, $value := .UFields }}{{if $idx}},{{end}}elem.{{ $value }}{{ end }}, elem.{{.UPrimaryKey}})
+         if err != nil {
+            return newT, err
+         }
+         newT = append(newT, elem)
+      }
+   }
+   return newT, nil
+}
+
+// Delete {{.TableName}}
+func(c *N{{.TableName}}) Delete(ID string) (error) {
+   conn, err := SherryDB.NewSherryDB(c.DBConfig)
+   if err != nil {
+      return fmt.Errorf("Can not connect databaser(%s).", err.Error())
+   }
+   _, err = conn.Exec("delete from {{.TableName}} where {{.PrimaryKey}}=?", ID)
+   if err != nil {
+      fmt.Errorf("Delete meno Error(%s).", err.Error())
+   }
+   return nil
+}

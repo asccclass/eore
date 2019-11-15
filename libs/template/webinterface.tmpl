@@ -1,0 +1,161 @@
+package {{.TableName}}
+
+import(
+   "os"
+   "fmt"
+   "net/http"
+   "encoding/json"
+   "io/ioutil"
+   "github.com/gorilla/mux"
+   "github.com/asccclass/sherrydb/mysql"
+)
+
+// Error2Web 輸出錯誤訊息至web client
+func(c *N{{.TableName}}) Error2Web(w http.ResponseWriter, err error) {
+   w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+   w.WriteHeader(http.StatusOK)
+   fmt.Fprintf(w, "{\"errMsg\": \"%s(server)\"}", err.Error())
+}
+
+// GetDataFromWeb 從web取得資料
+func(c *N{{.TableName}}) ParseDataFromWeb(w http.ResponseWriter, r *http.Request)([]byte) {
+   b, err := ioutil.ReadAll(r.Body)
+   if err != nil {
+      c.Error2Web(w, err)
+      return b
+   }
+   if !json.Valid(b)  {
+      c.Error2Web(w, fmt.Errorf("JSON data is invalid.") )
+      return b
+   }
+   defer r.Body.Close()
+   return b
+}
+
+// CreateFromWeb 新增資料
+func(c *N{{.TableName}})CreateFromWeb(w http.ResponseWriter, r *http.Request) {
+   // 取得web資料
+   b := c.ParseDataFromWeb(w, r)
+   tbl := X{{.TableName}}{}
+   if err := json.Unmarshal(b, &tbl); err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+   tbl, err := c.Create(tbl)
+   if err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+   jstr, err := json.Marshal(tbl)
+   if err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+   w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+   w.WriteHeader(http.StatusOK)
+   fmt.Fprintf(w, string(jstr))
+}
+
+// ReadFromWeb 讀取資料
+func(c *N{{.TableName}}) ReadFromWeb(w http.ResponseWriter, r *http.Request) {
+   urlParams := mux.Vars(r)
+   var id string = ""
+   if urlParams["{{.PrimaryKey}}"] != "" {
+      id = urlParams["{{.PrimaryKey}}"]
+   }
+   tbls, err := c.Read(id)
+   jstr, err := json.Marshal(tbls)
+   if err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+
+   w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+   w.WriteHeader(http.StatusOK)
+   if string(jstr) == "" {
+      fmt.Fprintf(w, "[{}]")
+      return
+   }
+   w.Write(jstr)
+}
+
+// UpdateFromWeb 修改資料
+func(c *N{{.TableName}}) UpdateFromWeb(w http.ResponseWriter, r *http.Request) {
+   // 取得web資料
+   b := c.ParseDataFromWeb(w, r)
+   tbl := X{{.TableName}}{}
+   if err := json.Unmarshal(b, &tbl); err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+   urlParams := mux.Vars(r)
+   if urlParams["{{.PrimaryKey}}"] != tbl.{{.UPrimaryKey}} {
+      c.Error2Web(w, fmt.Errorf("params error"))
+      return
+   }
+   tbls := []X{{.TableName}}{}
+   tbls = append(tbls, tbl)
+   tbls, err := c.Update(tbls)
+   if err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+
+   // 輸出 json
+   response, err := json.Marshal(tbls[0])
+   if err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+   w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+   w.WriteHeader(http.StatusOK)
+   fmt.Fprintf(w, string(response))
+}
+
+
+// DELETE {{.TableName}} from web
+func(c *N{{.TableName}}) DeleteFromWeb(w http.ResponseWriter, r *http.Request) {
+   // 取得web資料
+   b := c.ParseDataFromWeb(w, r)
+   tbl := X{{.TableName}}{}
+   if err := json.Unmarshal(b, &tbl); err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+
+   urlParams := mux.Vars(r)
+   if urlParams["{{.PrimaryKey}}"] != tbl.{{.UPrimaryKey}} {
+      c.Error2Web(w, fmt.Errorf("Params Error."))
+      return
+   }
+   if err := c.Delete(tbl.{{.UPrimaryKey}}); err != nil {
+      c.Error2Web(w, err)
+      return
+   }
+   w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+   w.WriteHeader(http.StatusOK)
+   fmt.Fprintf(w, "{\"Status\": \"200\"}")
+}
+
+func(c *N{{.TableName}}) Add{{.TableName}}Router(router *mux.Router) {
+   router.HandleFunc("/{{.TableName}}", c.CreateFromWeb).Methods("POST")       	            //C:新增資料
+   router.HandleFunc("/{{.TableName}}", c.ReadFromWeb).Methods("GET")    	                  //R:取得收件單s
+   router.HandleFunc("/{{.TableName}}/{ {{.PrimaryKey}} }", c.ReadFromWeb).Methods("GET")           //R:取得收件單
+   router.HandleFunc("/{{.TableName}}/{ {{.PrimaryKey}} }", c.UpdateFromWeb).Methods("PUT")         //U:修改單筆資料
+   router.HandleFunc("/{{.TableName}}/{ {{.PrimaryKey}} }", c.DeleteFromWeb).Methods("DELETE")      //D:刪除單筆資料
+}
+
+func NewN{{.TableName}}()(*N{{.TableName}}, error) {
+   dbconnect := SherryDB.DBConnect {
+      DBMS: os.Getenv("DBMS"),
+      DbServer: os.Getenv("DBSERVER"),
+      DbPort: os.Getenv("DBPORT"),
+      DbName: os.Getenv("DBNAME"),
+      DbLogin: os.Getenv("DBLOGIN"),
+      DbPasswd: os.Getenv("DBPASSWORD"),
+   }
+
+   return &N{{.TableName}} {
+      DBConfig: dbconnect,
+   }, nil
+}

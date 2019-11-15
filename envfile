@@ -1,0 +1,8 @@
+PORT=80
+DBSERVER=MySQLx
+DBNAME=bots
+DBLOGIN=root
+DBPASSWORD=webteam@2019
+
+DocumentRoot=www/html
+TemplateRoot=www/template

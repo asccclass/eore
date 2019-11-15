@@ -14,8 +14,12 @@ func main() {
    if documentRoot == "" {
       documentRoot = "www"
    }
+   templateRoot := os.Getenv("TemplateRoot")
+   if templateRoot == "" {
+      templateRoot = "www/html"
+   }
 
-   server, err := SherryServer.NewServer(":" + port, documentRoot)
+   server, err := SherryServer.NewServer(":" + port, documentRoot, templateRoot)
    if err != nil {
       panic(err)
    }
