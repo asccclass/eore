@@ -1,0 +1,53 @@
+package {{.TableName}} 
+
+import (
+   "strconv"
+   "github.com/zserge/lorca"
+   "github.com/asccclass/customerman/libs/uicommunicate"
+)
+
+type F{{.TableName}} struct {
+{{ .TableStructure }}}
+
+type W{{.TableName}} struct {
+   UIC        *UICommunicate.UIComm
+}
+
+// Create {{.TableName}}
+func(r *W{{.TableName}}) Create(tbl F{{.TableName}}) {
+   t := r.UIC.SendDataToServer("POST", "{{.TableName}}", tbl)
+   r.UIC.ReflectMessage("Add{{.TableName}}", t)
+}
+
+// 取得會員等級ID
+func (r *W{{.TableName}}) Read() {
+   var tbl F{{.TableName}}
+   t := r.UIC.SendDataToServer("GET", "{{.TableName}}", tbl)
+   r.UIC.ReflectMessage("Set{{.TableName}}", t)
+}
+
+// Updae {{ .TableName }}
+func(r *W{{.TableName}}) Update(tbl F{{.TableName}}) {
+   t := r.UIC.SendDataToServer("PUT", "{{.TableName}}/" + strconv.Itoa(tbl.{{.UPrimaryKey}}), tbl)
+   r.UIC.ReflectMessage("Update{{.TableName}}", t)
+}
+
+// 刪除會員資料
+func(r *W{{.TableName}}) Delete(tbl F{{.TableName}}) {
+   t := r.UIC.SendDataToServer("DELETE", "{{.TableName}}/" + strconv.Itoa(tbl.{{.UPrimaryKey}}), tbl)
+   r.UIC.ReflectMessage("Delete{{.TableName}}", t)
+}
+
+// Rank
+func(r *W{{.TableName}}) SetUpBrowserRouter(browser lorca.UI) {
+   browser.Bind("GoCreate{{.TableName}}", r.Create)	// Create {{.TableName}}
+   browser.Bind("GoRead{{.TableName}}Data", r.Read)	// Read {{.TableName}}
+   browser.Bind("GoUpdate{{.TableName}}", r.Update)	// Update {{.TableName}}
+   browser.Bind("GoDelete{{.TableName}}", r.Delete)	// Delete {{.TableName}}
+}
+
+func New{{.TableName}}(uic *UICommunicate.UIComm) (*W{{.TableName}}) {
+   return &W{{.TableName}} {
+      UIC: uic,
+   }
+}

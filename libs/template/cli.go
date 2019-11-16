@@ -14,6 +14,13 @@ func main() {
       fmt.Println(err)
       return 
    }
+   tmpl := template.Must(template.ParseFiles("./frontend.tmpl"))
+   params := tpl.ProcessSchema()
+   // tmpl.Execute(f, params)
+   tmpl.Execute(os.Stdout, params)	// write to command line
+   // f.Close()
+return
+/*
    // 判斷目錄是否存在
    dir := "./" + dbName + "/" + table
    if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -21,7 +28,7 @@ func main() {
          panic(err)
       }
    }
-   f, err := os.Create(dir + "/" + table + ".go")
+   f, err := os.Create(dir + "/backend/" + table + ".go")
    if err != nil {
       fmt.Errorf("Create %s error:%s\n", dir, err.Error())
       return
@@ -33,7 +40,7 @@ func main() {
    // tmpl.Execute(w, nil)		// write to web
    f.Close()
 
-   f, err = os.Create(dir + "/" + table + "web.go")
+   f, err = os.Create(dir + "/backend/" + table + "web.go")
    if err != nil {
       fmt.Errorf("Create %s error:%s\n", dir, err.Error())
       return
@@ -41,4 +48,14 @@ func main() {
    tmpl = template.Must(template.ParseFiles("./webinterface.tmpl"))
    params = tpl.ProcessSchema()
    tmpl.Execute(f, params)
+   f.Close()
+*/
+   // 前端
+/*
+   f, err = os.Create(dir + "/frontend/" + table + ".go")
+   if err != nil {
+      fmt.Errorf("Create %s error:%s\n", dir, err.Error())
+      return
+   }
+*/
 }
